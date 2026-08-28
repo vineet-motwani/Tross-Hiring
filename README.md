@@ -1,4 +1,4 @@
-# LinkedIn Profile API (Go)
+# LinkedIn Profile API
 
 A fast, concurrent, and robust Go-based API for fetching and normalizing public LinkedIn profiles. 
 
