@@ -1,7 +1,7 @@
 # Coding Guidelines for this Repository
 
-This repository is a Go translation of a Python FastAPI application for querying LinkedIn profiles.
-When contributing to this repository, future LLMs should adhere to the following best practices:
+This repository is a high-performance Go application for querying LinkedIn profiles.
+When contributing to this repository, adhere to the following best practices:
 
 1. **Idiomatic Go**: Use idiomatic Go formatting (`gofmt`), naming conventions (e.g., camelCase for unexported variables, PascalCase for exported ones), and patterns.
 2. **Error Handling**: Do not silently swallow errors. Wrap errors with context where appropriate using `fmt.Errorf("...: %w", err)`.
