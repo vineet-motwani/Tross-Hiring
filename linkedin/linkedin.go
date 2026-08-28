@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/vineet-motwani/Tross-Hiring/identity"
 )
 
 var (
@@ -109,6 +111,8 @@ func (c *Client) FetchProfile(ctx context.Context, publicIdentifier string, incl
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(c.Settings.LinkedInTotalTimeoutSeconds)*time.Second)
 	defer cancel()
 
+	ctx = context.WithValue(ctx, "publicIdentifier", publicIdentifier)
+	
 	creds, err := c.CredentialProvider.Get(ctx)
 	if err != nil {
 		return nil, err
@@ -266,6 +270,12 @@ func (c *Client) getJSON(ctx context.Context, path string, params map[string]str
 		req.Header.Set("accept", "application/vnd.linkedin.normalized+json+2.1")
 		req.Header.Set("accept-language", "en-US,en;q=0.9")
 		req.Header.Set("csrf-token", creds.CSRFToken)
+		
+		// Add referer header matching the profile identifier if this is a profile lookup
+		if publicIdentifier, ok := ctx.Value("publicIdentifier").(string); ok && publicIdentifier != "" {
+			req.Header.Set("referer", fmt.Sprintf("https://www.linkedin.com/in/%s/", publicIdentifier))
+		}
+		
 		req.Header.Set("sec-fetch-dest", "empty")
 		req.Header.Set("sec-fetch-mode", "cors")
 		req.Header.Set("sec-fetch-site", "same-origin")
@@ -350,9 +360,70 @@ func min(a, b float64) float64 {
 	return b
 }
 
-// matchesPrimaryIdentity needs full implementation based on python's identity parsing modules
+func primaryProfileCandidates(document map[string]interface{}) []map[string]interface{} {
+	included, ok := document["included"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var profiles []map[string]interface{}
+	for _, item := range included {
+		if entity, ok := item.(map[string]interface{}); ok {
+			if entity["$type"] == "com.linkedin.voyager.dash.identity.profile.Profile" {
+				profiles = append(profiles, entity)
+			}
+		}
+	}
+	data, ok := document["data"].(map[string]interface{})
+	if !ok {
+		return profiles
+	}
+	roots, ok := data["*elements"].([]interface{})
+	if !ok {
+		return profiles
+	}
+	rootUrns := make(map[string]bool)
+	for _, r := range roots {
+		if s, ok := r.(string); ok {
+			rootUrns[s] = true
+		}
+	}
+	var filtered []map[string]interface{}
+	for _, p := range profiles {
+		if urn, ok := p["entityUrn"].(string); ok && rootUrns[urn] {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+// matchesPrimaryIdentity validates that the returned document belongs to the requested profile.
 func matchesPrimaryIdentity(doc map[string]interface{}, publicIdentifier string) bool {
-	// Stub implementation - this would need to call the Go equivalent of `profile_public_identifiers`
-	// from your identity parsing package.
-	return true
+	expected := strings.ToLower(publicIdentifier)
+	candidates := primaryProfileCandidates(doc)
+	if legacy, ok := doc["profile"]; ok && legacy != nil {
+		if identity.HasMalformedPublicIdentifier(legacy) {
+			return false
+		}
+		legacyIdentifiers := identity.ProfilePublicIdentifiers(legacy)
+		if len(legacyIdentifiers) > 0 {
+			for _, item := range legacyIdentifiers {
+				if strings.ToLower(item) == expected {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	for _, candidate := range candidates {
+		if identity.HasMalformedPublicIdentifier(candidate) {
+			return false
+		}
+		identifiers := identity.ProfilePublicIdentifiers(candidate)
+		for _, item := range identifiers {
+			if strings.ToLower(item) == expected {
+				return true
+			}
+		}
+	}
+	return false
 }

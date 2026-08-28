@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/vineet-motwani/Tross-Hiring/api"
 	"github.com/vineet-motwani/Tross-Hiring/cache"
@@ -48,8 +49,13 @@ func main() {
 
 	app := api.CreateApp(runtimeSettings, svc, limiter)
 
-	log.Printf("Starting application on port 8000...")
-	if err := app.Run(":8000"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+
+	log.Printf("Starting application on port %s...", port)
+	if err := app.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
@@ -67,8 +73,8 @@ func (a credentialProviderAdapter) Get(ctx context.Context) (*linkedin.Credentia
 		return nil, nil
 	}
 	var cookies []*http.Cookie
-	for _, c := range creds.SessionCookies {
-		cookies = append(cookies, &http.Cookie{Name: c.Key, Value: c.Value})
+	for k, v := range creds.Cookies() {
+		cookies = append(cookies, &http.Cookie{Name: k, Value: v})
 	}
 	return &linkedin.Credentials{
 		CSRFToken: creds.CsrfToken(),

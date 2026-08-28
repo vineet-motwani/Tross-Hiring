@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/vineet-motwani/Tross-Hiring/cache"
 	"github.com/vineet-motwani/Tross-Hiring/errors"
@@ -88,7 +89,7 @@ func (s *ProfileService) fetchAndCache(ctx context.Context, cacheKey string, pub
 
 	// Deduplicate warnings
 	warningMap := make(map[string]bool)
-	var warnings []string
+	warnings := make([]string, 0)
 	for _, w := range fetched.Warnings {
 		if !warningMap[w] {
 			warningMap[w] = true
@@ -98,8 +99,12 @@ func (s *ProfileService) fetchAndCache(ctx context.Context, cacheKey string, pub
 
 	response := &models.ProfileResponse{
 		Meta: models.ResponseMeta{
-			Partial:  len(warnings) > 0,
-			Warnings: warnings,
+			SchemaVersion: "1.0",
+			RetrievedAt:   time.Now().UTC(),
+			Source:        "linkedin",
+			Cached:        false,
+			Partial:       len(warnings) > 0,
+			Warnings:      warnings,
 		},
 		Profile: *profile,
 	}

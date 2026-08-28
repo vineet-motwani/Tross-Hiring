@@ -21,8 +21,8 @@ curl --request POST 'http://localhost:8080/v1/profiles' \
   --data '{"url":"https://www.linkedin.com/in/vineetmotwani/"}'
 ```
 
-### Safety & Anti-Bot Precautions
-This API requires LinkedIn session cookies (`li_at` and `JSESSIONID`).
+### BYOK (Bring Your Own Key) & Anti-Bot Precautions
+This API operates on a BYOK (Bring Your Own Key) model and requires your own LinkedIn session cookies (`li_at` and `JSESSIONID`) to be injected as environment variables.
 **Never use your personal LinkedIn account cookies**. Always create a separate, low-privilege dummy account to extract the cookies. Rapidly scraping hundreds of unique profiles will trigger LinkedIn's anti-bot protections and could result in the account being banned.
 
 ## Local Development & Testing
