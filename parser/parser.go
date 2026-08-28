@@ -548,22 +548,32 @@ func (vp *VoyagerParser) parseDash(entity map[string]interface{}, publicIdentifi
 	}
 
 	prof := &models.Profile{
-		LinkedInID:       urnID(entity["entityUrn"]),
-		PublicIdentifier: publicIdentifier,
-		ProfileURL:       "https://www.linkedin.com/in/" + publicIdentifier + "/",
-		FirstName:        firstName,
-		LastName:         lastName,
-		FullName:         fullName,
-		Headline:         text(entity["headline"]),
-		About:            text(entity["summary"]),
+		LinkedInID:          urnID(entity["entityUrn"]),
+		PublicIdentifier:    publicIdentifier,
+		ProfileURL:          "https://www.linkedin.com/in/" + publicIdentifier + "/",
+		FirstName:           firstName,
+		LastName:            lastName,
+		FullName:            fullName,
+		Headline:            text(entity["headline"]),
+		About:               text(entity["summary"]),
 		Location: models.Location{
 			DisplayName: strValue(locName),
 			CountryCode: strValue(countryCode),
 		},
-		Industry:         ind,
-		ConnectionDegree: vp.connectionDegree(entity),
-		FollowerCount:    safeInt(entity["followerCount"], 0, 100000000),
-		ConnectionCount:  safeInt(entity["connectionCount"], 0, 100000000),
+		Industry:            ind,
+		ConnectionDegree:    vp.connectionDegree(entity),
+		FollowerCount:       safeInt(entity["followerCount"], 0, 100000000),
+		ConnectionCount:     safeInt(entity["connectionCount"], 0, 100000000),
+		Experience:          make([]models.Experience, 0),
+		Education:           make([]models.Education, 0),
+		Skills:              make([]models.Skill, 0),
+		Certifications:      make([]models.Certification, 0),
+		Languages:           make([]models.Language, 0),
+		Projects:            make([]models.Project, 0),
+		Publications:        make([]models.Publication, 0),
+		Courses:             make([]models.Course, 0),
+		Honors:              make([]models.Honor, 0),
+		VolunteerExperience: make([]models.VolunteerExperience, 0),
 	}
 
 	img1 := image(entity["profilePicture"], 0, nil)
@@ -734,7 +744,98 @@ func (vp *VoyagerParser) mergeEntitySections(profile *models.Profile) {
 					EndorsementCount: safeInt(entity["endorsementCount"], 0, 1000000),
 				})
 			}
-		// other sections elided for brevity, but could be implemented similarly
+		case "certifications":
+			issued := entity["timePeriod"]
+			if issued == nil {
+				issued = entity["dateRange"]
+			}
+			var startVal, endVal *models.DateValue
+			if issuedMap, ok := issued.(map[string]interface{}); ok {
+				startVal = date(issuedMap["start"])
+				endVal = date(issuedMap["end"])
+			}
+			org := text(entity["authority"])
+			if org == nil {
+				org = text(entity["issuingOrganization"])
+			}
+			credID := text(entity["licenseNumber"])
+			if credID == nil {
+				credID = text(entity["credentialId"])
+			}
+			profile.Certifications = append(profile.Certifications, models.Certification{
+				ID:                  urnID(entity["entityUrn"]),
+				Name:                text(entity["name"]),
+				IssuingOrganization: org,
+				IssueDate:           startVal,
+				ExpirationDate:      endVal,
+				CredentialID:        credID,
+				CredentialURL:       text(entity["url"]),
+			})
+		case "languages":
+			name := text(entity["name"])
+			if name != nil {
+				profile.Languages = append(profile.Languages, models.Language{
+					ID:          urnID(entity["entityUrn"]),
+					Name:        *name,
+					Proficiency: text(entity["proficiency"]),
+				})
+			}
+		case "projects":
+			name := text(entity["title"])
+			if name == nil {
+				name = text(entity["name"])
+			}
+			dr := entity["timePeriod"]
+			if dr == nil {
+				dr = entity["dateRange"]
+			}
+			profile.Projects = append(profile.Projects, models.Project{
+				ID:          urnID(entity["entityUrn"]),
+				Name:        name,
+				Description: text(entity["description"]),
+				DateRange:   dateRange(dr),
+				URL:         text(entity["url"]),
+			})
+		case "publications":
+			profile.Publications = append(profile.Publications, models.Publication{
+				ID:          urnID(entity["entityUrn"]),
+				Name:        text(entity["name"]),
+				Publisher:   text(entity["publisher"]),
+				Description: text(entity["description"]),
+				PublishedOn: date(entity["date"]),
+				URL:         text(entity["url"]),
+			})
+		case "courses":
+			profile.Courses = append(profile.Courses, models.Course{
+				ID:     urnID(entity["entityUrn"]),
+				Name:   text(entity["name"]),
+				Number: text(entity["number"]),
+			})
+		case "honors":
+			profile.Honors = append(profile.Honors, models.Honor{
+				ID:          urnID(entity["entityUrn"]),
+				Title:       text(entity["title"]),
+				Issuer:      text(entity["issuer"]),
+				Description: text(entity["description"]),
+				IssuedOn:    date(entity["issuedOn"]),
+			})
+		case "volunteer_experience":
+			org := text(entity["companyName"])
+			if org == nil {
+				org = text(entity["organization"])
+			}
+			dr := entity["timePeriod"]
+			if dr == nil {
+				dr = entity["dateRange"]
+			}
+			profile.VolunteerExperience = append(profile.VolunteerExperience, models.VolunteerExperience{
+				ID:           urnID(entity["entityUrn"]),
+				Role:         text(entity["role"]),
+				Organization: org,
+				Cause:        text(entity["cause"]),
+				Description:  text(entity["description"]),
+				DateRange:    dateRange(dr),
+			})
 		}
 	}
 }
